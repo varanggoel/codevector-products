@@ -1,0 +1,14 @@
+# Render Blueprint. Push this repo, then on Render: New -> Blueprint -> pick repo.
+# Set DATABASE_URL (your Neon pooled connection string) in the dashboard.
+services:
+  - type: web
+    name: codevector-products
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PGSSL
+        value: require

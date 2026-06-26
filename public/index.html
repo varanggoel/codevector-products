@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Products · keyset pagination demo</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; max-width: 760px; margin-inline: auto; }
+    h1 { font-size: 1.25rem; }
+    .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    select, button { padding: 8px 12px; font-size: 0.95rem; border-radius: 8px; border: 1px solid #8884; background: transparent; color: inherit; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #8883; font-size: 0.9rem; }
+    th { font-weight: 600; opacity: 0.7; }
+    .muted { opacity: 0.6; font-size: 0.85rem; }
+    .price { text-align: right; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <h1>Products <span class="muted">— newest first, keyset paginated</span></h1>
+
+  <div class="controls">
+    <label>Category:
+      <select id="category"><option value="">All</option></select>
+    </label>
+    <label>Page size:
+      <select id="limit"><option>10</option><option selected>20</option><option>50</option><option>100</option></select>
+    </label>
+    <button id="reset">Reset</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>id</th><th>Name</th><th>Category</th><th class="price">Price</th><th>Created</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <p style="text-align:center; margin-top:16px;">
+    <button id="more">Load more</button>
+  </p>
+  <p class="muted" id="status"></p>
+
+  <script>
+    const rowsEl = document.getElementById('rows');
+    const moreBtn = document.getElementById('more');
+    const statusEl = document.getElementById('status');
+    const categoryEl = document.getElementById('category');
+    const limitEl = document.getElementById('limit');
+
+    let cursor = null;
+    let done = false;
+    let count = 0;
+
+    function reset() {
+      cursor = null; done = false; count = 0;
+      rowsEl.innerHTML = '';
+      statusEl.textContent = '';
+      moreBtn.disabled = false;
+      load();
+    }
+
+    async function load() {
+      if (done) return;
+      moreBtn.disabled = true;
+      const params = new URLSearchParams({ limit: limitEl.value });
+      if (categoryEl.value) params.set('category', categoryEl.value);
+      if (cursor) params.set('cursor', cursor);
+
+      const res = await fetch('/api/products?' + params);
+      const data = await res.json();
+
+      for (const p of data.items) {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          `<td class="muted">${p.id}</td><td>${p.name}</td><td>${p.category}</td>` +
+          `<td class="price">$${Number(p.price).toFixed(2)}</td>` +
+          `<td class="muted">${new Date(p.created_at).toLocaleString()}</td>`;
+        rowsEl.appendChild(tr);
+      }
+      count += data.items.length;
+      cursor = data.nextCursor;
+      done = !cursor;
+      moreBtn.disabled = done;
+      statusEl.textContent = `${count} loaded` + (done ? ' · end of list' : '');
+    }
+
+    moreBtn.addEventListener('click', load);
+    document.getElementById('reset').addEventListener('click', reset);
+    categoryEl.addEventListener('change', reset);
+    limitEl.addEventListener('change', reset);
+
+    // Populate category filter, then load the first page.
+    fetch('/api/categories').then((r) => r.json()).then((d) => {
+      for (const c of d.categories || []) {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        categoryEl.appendChild(opt);
+      }
+    }).finally(load);
+  </script>
+</body>
+</html>
